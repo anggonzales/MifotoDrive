@@ -2,6 +2,8 @@ package com.example.mifotodrive;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.loader.content.CursorLoader;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.accounts.AccountManager;
 import android.app.Activity;
@@ -22,6 +24,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +41,7 @@ import com.google.api.services.drive.model.FileList;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -63,6 +67,13 @@ public class MainActivity extends AppCompatActivity {
     private static Uri uriFichero;
     private String idCarpeta = "";
     static final String DISPLAY_MESSAGE_ACTION = "com.example.mifotodrive.DISPLAY_MESSAGE";
+
+    //para el recycler de imagenes
+    private ImageView imageView;
+    RecyclerView recyclerView;
+    GridLayoutManager gridLayoutManager;
+    ArrayList<ImageURL> imageUrlList;
+    DataAdapter dataAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +102,14 @@ public class MainActivity extends AppCompatActivity {
         idCarpeta = prefs.getString("idCarpeta", null);
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
         StrictMode.setVmPolicy(builder.build());
+
+        imageUrlList=new ArrayList<>();
+        imageView = (ImageView) findViewById(R.id.imageView);
+        recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        gridLayoutManager = new GridLayoutManager(getApplicationContext(), 2);
+        recyclerView.setLayoutManager(gridLayoutManager);
+        dataAdapter = new DataAdapter(getApplicationContext(), imageUrlList);
+        recyclerView.setAdapter(dataAdapter);
     }
 
     private void PedirCredenciales() {
@@ -283,6 +302,14 @@ public class MainActivity extends AppCompatActivity {
                     if (ficheroSubido.getId() != null) {
                         mostrarMensaje(MainActivity.this, "¡Foto subida!");
                         listarFicheros(view);
+                        runOnUiThread(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                dataAdapter.update(imageUrlList);
+                            }
+                        });
                     }
                     ocultarCarga(MainActivity.this);
                 } catch (UserRecoverableAuthIOException e) {
@@ -309,6 +336,7 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String nuevoMensaje = intent.getExtras().getString("mensaje");
             mDisplay.append(nuevoMensaje + "\n");
+            mDisplay.setText(nuevoMensaje);
         }
     };
 
@@ -326,7 +354,7 @@ public class MainActivity extends AppCompatActivity {
             Thread t = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    try {
+                    /*try {
                         mostrarCarga(MainActivity.this, "Listando archivos...");
                         FileList ficheros = servicio.files().list()
                                 .setQ("'" + idCarpeta + "' in parents")
@@ -336,6 +364,25 @@ public class MainActivity extends AppCompatActivity {
                             mostrarTexto(getBaseContext(), fichero.getOriginalFilename());
                             Log.i("listando","id:"+fichero.getId());
                         }
+                        mostrarMensaje(MainActivity.this,
+                                "¡Archivos listados!");
+                        ocultarCarga(MainActivity.this);
+                    }*/
+                    try {
+                        mostrarCarga(MainActivity.this, "Listando archivos...");
+                        FileList ficheros = servicio.files().list()
+                                .setQ("'" + idCarpeta + "' in parents")
+                                .setFields("*")
+                                .execute();
+                        imageUrlList.clear();
+                        String mimensaje="";
+                        for (File fichero : ficheros.getFiles()) {
+                            mimensaje=mimensaje+fichero.getOriginalFilename() + "\n";
+                            Log.i("listando","id:"+fichero.getId());
+                            ImageURL imageUrl = new ImageURL("https://drive.google.com/uc?export=download&id="+fichero.getId());
+                            imageUrlList.add(imageUrl);
+                        }
+                        mostrarTexto(getBaseContext(), mimensaje);
                         mostrarMensaje(MainActivity.this,
                                 "¡Archivos listados!");
                         ocultarCarga(MainActivity.this);
@@ -354,4 +401,5 @@ public class MainActivity extends AppCompatActivity {
             t.start();
         }
     }
+
 }
